@@ -4,7 +4,7 @@
   "description": "Webhook para recibir notificaciones de pago",
   "main": "server.js",
   "scripts": {
-    "start": "NODE_ENV=production node server.js",
+    "start": "node server.js",
     "dev": "concurrently \"node server.js\" \"npm run client\"",
     "dev:tunnel": "concurrently \"node server.js\" \"npm run client\" \"npm run ngrok\"",
     "ngrok": "ngrok http 3001",
