@@ -8,9 +8,17 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const server = http.createServer(app);
 
+const fs = require('fs');
+
 // Configuración para producción o desarrollo
-const isProduction = process.env.NODE_ENV === 'production';
+// Detecta producción si existe la carpeta build O si NODE_ENV es production
+const buildPath = path.join(__dirname, 'client/build');
+const hasBuild = fs.existsSync(buildPath);
+const isProduction = process.env.NODE_ENV === 'production' || hasBuild;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+
+console.log(`🔧 Modo: ${isProduction ? 'PRODUCCIÓN' : 'DESARROLLO'}`);
+console.log(`🔧 Build existe: ${hasBuild}`);
 
 const io = new Server(server, {
   cors: {
@@ -24,8 +32,9 @@ app.use(cors());
 app.use(express.json());
 
 // Servir archivos estáticos de React en producción
-if (isProduction) {
-  app.use(express.static(path.join(__dirname, 'client/build')));
+if (isProduction && hasBuild) {
+  console.log(`📁 Sirviendo archivos estáticos desde: ${buildPath}`);
+  app.use(express.static(buildPath));
 }
 
 // Almacén temporal de pagos (en producción usar DB)
@@ -132,9 +141,9 @@ io.on('connection', (socket) => {
 });
 
 // Catch-all para servir React en producción (debe ir al final)
-if (isProduction) {
+if (isProduction && hasBuild) {
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+    res.sendFile(path.join(buildPath, 'index.html'));
   });
 }
 
