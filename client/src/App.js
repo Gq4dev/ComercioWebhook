@@ -186,7 +186,7 @@ function App() {
             <h3>Esperando pagos...</h3>
             <p>Los pagos aparecerán aquí cuando sean recibidos</p>
             <div className="webhook-info">
-              <code>POST http://localhost:3001/webhook</code>
+              <code>POST https://comerciowebhook.onrender.com/webhook</code>
             </div>
           </div>
         ) : (
