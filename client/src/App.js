@@ -200,18 +200,28 @@ function App() {
                 <div className="payment-main">
                   <div className="payment-header">
                     <span className="payment-payer">{payment.payer}</span>
-                    <span className="payment-amount">
-                      {formatCurrency(payment.amount, payment.currency)}
-                    </span>
+                    <div className="payment-header-right">
+                      {payment.status && payment.status !== 'received' && (
+                        <span className={`payment-status-badge status-${payment.status}`}>{payment.status}</span>
+                      )}
+                      <span className="payment-amount">
+                        {formatCurrency(payment.amount, payment.currency)}
+                      </span>
+                    </div>
                   </div>
                   <div className="payment-details">
                     <span className="payment-description">{payment.description}</span>
                     {payment.reference && (
                       <span className="payment-reference">Ref: {payment.reference}</span>
                     )}
+                    {payment.paymentMethod && (
+                      <span className="payment-method">{payment.paymentMethod}</span>
+                    )}
                   </div>
                   <div className="payment-footer">
-                    <span className="payment-id">ID: {payment.id.substring(0, 8)}...</span>
+                    <span className="payment-id">
+                      {payment.transactionId ? `TXN: ${payment.transactionId}` : `ID: ${payment.id.substring(0, 8)}...`}
+                    </span>
                     <span className="payment-time">
                       {formatDate(payment.timestamp)} - {formatTime(payment.timestamp)}
                     </span>
@@ -225,7 +235,7 @@ function App() {
 
       {/* Footer */}
       <footer className="footer">
-        <p>Webhook: <code>http://localhost:3001/webhook</code></p>
+        <p>Webhook: <code>{SOCKET_URL}/webhook</code></p>
       </footer>
     </div>
   );

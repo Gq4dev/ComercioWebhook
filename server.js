@@ -68,6 +68,35 @@ app.post('/webhook/toggle', (req, res) => {
   });
 });
 
+// Normaliza el payload entrante (formato SQS nuevo o legacy) a nuestro modelo de pago
+function normalizePaymentPayload(data) {
+  const payer = data.payer;
+  const payerName = typeof payer === 'object' && payer !== null
+    ? (payer.name || payer.email || 'Desconocido')
+    : (payer || data.pagador || 'Desconocido');
+
+  const paymentMethod = data.paymentMethod;
+  const methodLabel = typeof paymentMethod === 'object' && paymentMethod !== null
+    ? [paymentMethod.brand || paymentMethod.type, paymentMethod.lastFourDigits ? `****${paymentMethod.lastFourDigits}` : ''].filter(Boolean).join(' ')
+    : (data.paymentMethod || null);
+
+  return {
+    id: data.payment_id || data.id || uuidv4(),
+    transactionId: data.transactionId || null,
+    amount: data.amount ?? data.monto ?? 0,
+    currency: data.currency || data.moneda || 'ARS',
+    status: data.status || data.estado || 'received',
+    description: data.description || data.descripcion || 'Pago recibido',
+    payer: payerName,
+    reference: data.externalReference || data.reference || data.referencia || null,
+    timestamp: data.processed_at || data.timestamp || new Date().toISOString(),
+    responseCode: data.responseCode || null,
+    responseMessage: data.responseMessage || null,
+    paymentMethod: methodLabel,
+    rawData: data
+  };
+}
+
 // Webhook principal para recibir pagos desde Lambda/SQS
 app.post('/webhook', (req, res) => {
   // Si el webhook está deshabilitado, retornar error 503 para que SQS reintente y vaya al DLQ
@@ -81,19 +110,7 @@ app.post('/webhook', (req, res) => {
 
   try {
     const paymentData = req.body;
-    
-    // Crear registro de pago con ID único
-    const payment = {
-      id: paymentData.id || uuidv4(),
-      amount: paymentData.amount || paymentData.monto || 0,
-      currency: paymentData.currency || paymentData.moneda || 'ARS',
-      status: paymentData.status || paymentData.estado || 'received',
-      description: paymentData.description || paymentData.descripcion || 'Pago recibido',
-      payer: paymentData.payer || paymentData.pagador || 'Desconocido',
-      reference: paymentData.reference || paymentData.referencia || null,
-      timestamp: new Date().toISOString(),
-      rawData: paymentData
-    };
+    const payment = normalizePaymentPayload(paymentData);
 
     // Guardar en memoria
     payments.unshift(payment);
