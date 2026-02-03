@@ -218,6 +218,22 @@ function App() {
                       <span className="payment-method">{payment.paymentMethod}</span>
                     )}
                   </div>
+                  {payment.tokens && Object.keys(payment.tokens).length > 0 && (
+                    <div className="payment-tokens">
+                      {payment.tokens.token != null && (
+                        <div className="payment-token-row"><span className="token-label">token</span><code>{payment.tokens.token}</code></div>
+                      )}
+                      {payment.tokens.tokenId != null && (
+                        <div className="payment-token-row"><span className="token-label">tokenId</span><code>{payment.tokens.tokenId}</code></div>
+                      )}
+                      {payment.tokens.panToken != null && (
+                        <div className="payment-token-row"><span className="token-label">panToken</span><code>{payment.tokens.panToken}</code></div>
+                      )}
+                      {payment.tokens.commerceToken != null && (
+                        <div className="payment-token-row"><span className="token-label">commerceToken</span><code>{payment.tokens.commerceToken}</code></div>
+                      )}
+                    </div>
+                  )}
                   <div className="payment-footer">
                     <span className="payment-id">
                       {payment.transactionId ? `TXN: ${payment.transactionId}` : `ID: ${payment.id.substring(0, 8)}...`}

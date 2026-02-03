@@ -80,6 +80,16 @@ function normalizePaymentPayload(data) {
     ? [paymentMethod.brand || paymentMethod.type, paymentMethod.lastFourDigits ? `****${paymentMethod.lastFourDigits}` : ''].filter(Boolean).join(' ')
     : (data.paymentMethod || null);
 
+  // Tokens opcionales del paymentMethod (solo si vienen en el mensaje)
+  const tokens = {};
+  if (typeof paymentMethod === 'object' && paymentMethod !== null) {
+    if (paymentMethod.token) tokens.token = paymentMethod.token;
+    if (paymentMethod.tokenId) tokens.tokenId = paymentMethod.tokenId;
+    if (paymentMethod.panToken) tokens.panToken = paymentMethod.panToken;
+    if (paymentMethod.commerceToken) tokens.commerceToken = paymentMethod.commerceToken;
+  }
+  const hasTokens = Object.keys(tokens).length > 0;
+
   return {
     id: data.payment_id || data.id || uuidv4(),
     transactionId: data.transactionId || null,
@@ -93,6 +103,7 @@ function normalizePaymentPayload(data) {
     responseCode: data.responseCode || null,
     responseMessage: data.responseMessage || null,
     paymentMethod: methodLabel,
+    ...(hasTokens && { tokens }),
     rawData: data
   };
 }
