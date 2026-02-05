@@ -312,8 +312,21 @@
 .payment-status-indicator {
   width: 4px;
   border-radius: 4px;
-  background: linear-gradient(180deg, #4ade80, #22c55e);
+  background: rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
+}
+
+.payment-card.status-approved .payment-status-indicator {
+  background: linear-gradient(180deg, #4ade80, #22c55e);
+}
+
+.payment-card.status-pending .payment-status-indicator {
+  background: linear-gradient(180deg, #fbbf24, #f59e0b);
+}
+
+.payment-card.status-rejected .payment-status-indicator,
+.payment-card.status-failed .payment-status-indicator {
+  background: linear-gradient(180deg, #f87171, #ef4444);
 }
 
 .payment-main {
@@ -365,11 +378,26 @@
   color: #fbbf24;
 }
 
+.payment-status-badge.status-received,
+.payment-status-badge.status-unknown {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .payment-amount {
   font-weight: 700;
   font-size: 1.25rem;
   color: #4ade80;
   white-space: nowrap;
+}
+
+.payment-card.status-pending .payment-amount {
+  color: #fbbf24;
+}
+
+.payment-card.status-rejected .payment-amount,
+.payment-card.status-failed .payment-amount {
+  color: #f87171;
 }
 
 .payment-details {

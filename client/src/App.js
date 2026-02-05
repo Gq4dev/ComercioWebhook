@@ -108,6 +108,12 @@ function App() {
     });
   };
 
+  const statusLabel = (status) => {
+    if (!status) return null;
+    const labels = { approved: 'Aprobado', pending: 'Pendiente', rejected: 'Rechazado' };
+    return labels[status] || status;
+  };
+
   return (
     <div className="app">
       {/* Notificación flotante */}
@@ -194,15 +200,15 @@ function App() {
             {payments.map((payment, index) => (
               <div 
                 key={payment.id} 
-                className={`payment-card ${index === 0 && notification?.id === payment.id ? 'new' : ''}`}
+                className={`payment-card ${payment.status ? `status-${payment.status}` : ''} ${index === 0 && notification?.id === payment.id ? 'new' : ''}`}
               >
                 <div className="payment-status-indicator"></div>
                 <div className="payment-main">
                   <div className="payment-header">
                     <span className="payment-payer">{payment.payer}</span>
                     <div className="payment-header-right">
-                      {payment.status && payment.status !== 'received' && (
-                        <span className={`payment-status-badge status-${payment.status}`}>{payment.status}</span>
+                      {payment.status && (
+                        <span className={`payment-status-badge status-${payment.status}`}>{statusLabel(payment.status)}</span>
                       )}
                       <span className="payment-amount">
                         {formatCurrency(payment.amount, payment.currency)}
