@@ -220,6 +220,9 @@ function App() {
                     {payment.reference && (
                       <span className="payment-reference">Ref: {payment.reference}</span>
                     )}
+                    {payment.type && (
+                      <span className="payment-type">{payment.type === 'debit' ? 'Débito' : payment.type === 'credit' ? 'Crédito' : payment.type}</span>
+                    )}
                     {payment.paymentMethod && (
                       <span className="payment-method">{payment.paymentMethod}</span>
                     )}
