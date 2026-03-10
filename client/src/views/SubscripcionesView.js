@@ -1,21 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './SubscripcionesView.css';
 
-const SOCKET_URL = process.env.NODE_ENV === 'production' 
-  ? window.location.origin 
-  : 'http://localhost:3001';
-
-function SubscripcionesView() {
+function SubscripcionesView({ subscriptions = [] }) {
   const navigate = useNavigate();
-  const [subscriptions, setSubscriptions] = useState([]);
-
-  useEffect(() => {
-    fetch(`${SOCKET_URL}/subscriptions`)
-      .then(res => res.json())
-      .then(data => setSubscriptions(data))
-      .catch(() => setSubscriptions([]));
-  }, []);
 
   const formatCurrency = (amount, currency = 'ARS') => {
     return new Intl.NumberFormat('es-AR', {
@@ -34,7 +22,7 @@ function SubscripcionesView() {
 
   const statusLabel = (status) => {
     if (!status) return '—';
-    const labels = { active: 'Activa', cancelled: 'Cancelada', pending: 'Pendiente', expired: 'Expirada' };
+    const labels = { active: 'Activa', cancelled: 'Cancelada', pending: 'Pendiente', expired: 'Expirada', approved: 'Aprobado', rejected: 'Rechazado' };
     return labels[status] || status;
   };
 

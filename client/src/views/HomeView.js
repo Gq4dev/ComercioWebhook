@@ -1,21 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './HomeView.css';
 
-const SOCKET_URL = process.env.NODE_ENV === 'production' 
-  ? window.location.origin 
-  : 'http://localhost:3001';
-
-function HomeView({ paymentsCount = 0 }) {
+function HomeView({ paymentsCount = 0, subscriptionsCount = 0 }) {
   const navigate = useNavigate();
-  const [subscriptionsCount, setSubscriptionsCount] = useState(0);
-
-  useEffect(() => {
-    fetch(`${SOCKET_URL}/subscriptions`)
-      .then(res => res.json())
-      .then(data => setSubscriptionsCount(Array.isArray(data) ? data.length : 0))
-      .catch(() => {});
-  }, []);
 
   return (
     <div className="home-view">

@@ -190,35 +190,48 @@ app.post('/webhook', (req, res) => {
 
   try {
     const paymentData = req.body;
-    const payment = normalizePaymentPayload(paymentData);
+    const item = normalizePaymentPayload(paymentData);
+    const isSubscription = (item.type || '').toLowerCase() === 'subscription';
 
-    // Guardar en memoria para la lista de pagos (últimos 100)
-    payments.unshift(payment);
-    if (payments.length > 100) {
-      payments.pop();
+    if (isSubscription) {
+      // Guardar en subscripciones (últimos 100)
+      subscriptions.unshift(item);
+      if (subscriptions.length > 100) {
+        subscriptions.pop();
+      }
+      console.log('🔄 Subscripción recibida:', item);
+      io.emit('new-subscription', item);
+      res.status(200).json({ 
+        success: true, 
+        message: 'Subscripción recibida correctamente',
+        id: item.id 
+      });
+    } else {
+      // Guardar en pagos (últimos 100)
+      payments.unshift(item);
+      if (payments.length > 100) {
+        payments.pop();
+      }
+
+      // Actualizar estadísticas agregadas
+      const day = new Date(item.timestamp).toISOString().split('T')[0];
+      if (!statsByDate[day]) {
+        statsByDate[day] = { total: 0, status: {} };
+      }
+      statsByDate[day].total++;
+      const st = item.status || 'unknown';
+      statsByDate[day].status[st] = (statsByDate[day].status[st] || 0) + 1;
+
+      console.log('💰 Pago recibido:', item);
+      io.emit('new-payment', item);
+      io.emit('stats-update', { date: day, stats: statsByDate[day] });
+
+      res.status(200).json({ 
+        success: true, 
+        message: 'Pago recibido correctamente',
+        paymentId: item.id 
+      });
     }
-
-    // Actualizar estadísticas agregadas
-    const day = new Date(payment.timestamp).toISOString().split('T')[0];
-    if (!statsByDate[day]) {
-      statsByDate[day] = { total: 0, status: {} };
-    }
-    statsByDate[day].total++;
-    const st = payment.status || 'unknown';
-    statsByDate[day].status[st] = (statsByDate[day].status[st] || 0) + 1;
-
-    console.log('💰 Pago recibido:', payment);
-
-    // Emitir a todos los clientes conectados
-    io.emit('new-payment', payment);
-    // también emitir actualización de estadísticas para el día actual
-    io.emit('stats-update', { date: day, stats: statsByDate[day] });
-
-    res.status(200).json({ 
-      success: true, 
-      message: 'Pago recibido correctamente',
-      paymentId: payment.id 
-    });
 
   } catch (error) {
     console.error('Error procesando webhook:', error);
@@ -243,9 +256,8 @@ app.get('/subscriptions', (req, res) => {
 io.on('connection', (socket) => {
   console.log('🔌 Cliente conectado:', socket.id);
   
-  // Enviar pagos existentes al conectarse
   socket.emit('payments-history', payments);
-  // también enviar estadísticas para el día actual
+  socket.emit('subscriptions-history', subscriptions);
   const today = new Date().toISOString().split('T')[0];
   socket.emit('stats-update', { date: today, stats: statsByDate[today] || { total: 0, status: {} } });
 

@@ -14,6 +14,7 @@ const SOCKET_URL = process.env.NODE_ENV === 'production'
 
 function AppContent() {
   const [payments, setPayments] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
   const [connected, setConnected] = useState(false);
   const [notification, setNotification] = useState(null);
   const [webhookEnabled, setWebhookEnabled] = useState(true);
@@ -50,9 +51,17 @@ function AppContent() {
       setPayments(history);
     });
 
+    socket.on('subscriptions-history', (history) => {
+      setSubscriptions(history);
+    });
+
     socket.on('new-payment', (payment) => {
       setPayments(prev => [payment, ...prev]);
       showNotification(payment);
+    });
+
+    socket.on('new-subscription', (subscription) => {
+      setSubscriptions(prev => [subscription, ...prev]);
     });
 
     socket.on('webhook-status', (status) => {
@@ -149,7 +158,7 @@ function AppContent() {
               />
             } 
           />
-          <Route path="/subscripciones" element={<SubscripcionesView />} />
+          <Route path="/subscripciones" element={<SubscripcionesView subscriptions={subscriptions} />} />
         </Routes>
       </main>
 
