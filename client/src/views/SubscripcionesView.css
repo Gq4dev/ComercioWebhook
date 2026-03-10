@@ -1,0 +1,120 @@
+.subscripciones-view {
+  flex: 1;
+  padding: 0 2rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.subscripciones-view .view-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.subscripciones-view .back-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.subscripciones-view .back-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.subscripciones-view .view-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  flex: 1;
+}
+
+.subscripciones-view .view-count {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.subscripciones-view .table-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.subscripciones-view .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.subscripciones-view .data-table th,
+.subscripciones-view .data-table td {
+  padding: 1rem 1.25rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.subscripciones-view .data-table th {
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.subscripciones-view .data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.subscripciones-view .cell-amount {
+  font-weight: 700;
+  color: #4ade80;
+}
+
+.subscripciones-view .cell-ref {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.subscripciones-view .status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.subscripciones-view .status-badge.status-active {
+  background: rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+}
+
+.subscripciones-view .status-badge.status-cancelled,
+.subscripciones-view .status-badge.status-expired {
+  background: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+}
+
+.subscripciones-view .status-badge.status-pending {
+  background: rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+}
+
+.subscripciones-view .empty-table-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+}
+
+.subscripciones-view .empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}

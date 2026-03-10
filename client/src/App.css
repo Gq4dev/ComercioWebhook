@@ -182,6 +182,22 @@
   border-color: rgba(139, 92, 246, 0.5);
 }
 
+.stat-card.active {
+  border: 2px solid #facc15;
+}
+
+.clear-filter {
+  margin-left: 1rem;
+  background: transparent;
+  border: none;
+  color: #facc15;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+.clear-filter:hover {
+  text-decoration: underline;
+}
+
 .stat-icon {
   font-size: 2.5rem;
 }

@@ -1,30 +1,28 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import './App.css';
+
+import HomeView from './views/HomeView';
+import PagosView from './views/PagosView';
+import SubscripcionesView from './views/SubscripcionesView';
 
 // En producción usa la misma URL, en desarrollo usa localhost:3001
 const SOCKET_URL = process.env.NODE_ENV === 'production' 
   ? window.location.origin 
   : 'http://localhost:3001';
 
-function App() {
+function AppContent() {
   const [payments, setPayments] = useState([]);
   const [connected, setConnected] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [totalAmount, setTotalAmount] = useState(0);
   const [webhookEnabled, setWebhookEnabled] = useState(true);
   const [toggling, setToggling] = useState(false);
-
-  // Calcular total cuando cambian los pagos
-  useEffect(() => {
-    const total = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
-    setTotalAmount(total);
-  }, [payments]);
+  const [filterStatus, setFilterStatus] = useState(null);
 
   // Mostrar notificación temporal
   const showNotification = useCallback((payment) => {
     setNotification(payment);
-    // Reproducir sonido de notificación
     const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQYAHI3O8teleQkAHI3O8+7RoFUZBj+QzfPp0aJYGwo4i8LVoF0nEDp0krDCwpZiNy8rAAAA');
     audio.volume = 0.3;
     audio.play().catch(() => {});
@@ -61,7 +59,6 @@ function App() {
       setWebhookEnabled(status.enabled);
     });
 
-    // Obtener estado inicial del webhook
     fetch(`${SOCKET_URL}/webhook/status`)
       .then(res => res.json())
       .then(data => setWebhookEnabled(data.enabled))
@@ -72,7 +69,6 @@ function App() {
     };
   }, [showNotification]);
 
-  // Función para activar/desactivar webhook
   const toggleWebhook = async () => {
     setToggling(true);
     try {
@@ -90,28 +86,6 @@ function App() {
       style: 'currency',
       currency: currency
     }).format(amount);
-  };
-
-  const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString('es-AR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-
-  const formatDate = (timestamp) => {
-    return new Date(timestamp).toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const statusLabel = (status) => {
-    if (!status) return null;
-    const labels = { approved: 'Aprobado', pending: 'Pendiente', rejected: 'Rechazado' };
-    return labels[status] || status;
   };
 
   return (
@@ -161,101 +135,22 @@ function App() {
         )}
       </header>
 
-      {/* Stats */}
-      <div className="stats-container">
-        <div className="stat-card">
-          <div className="stat-icon">📊</div>
-          <div className="stat-info">
-            <span className="stat-value">{payments.length}</span>
-            <span className="stat-label">Pagos Recibidos</span>
-          </div>
-        </div>
-        <div className="stat-card highlight">
-          <div className="stat-icon">💵</div>
-          <div className="stat-info">
-            <span className="stat-value">{formatCurrency(totalAmount)}</span>
-            <span className="stat-label">Total Recaudado</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Lista de pagos */}
+      {/* Rutas */}
       <main className="main-content">
-        <div className="payments-header">
-          <h2>Historial de Pagos</h2>
-          <span className="payments-count">{payments.length} registros</span>
-        </div>
-
-        {payments.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">📭</div>
-            <h3>Esperando pagos...</h3>
-            <p>Los pagos aparecerán aquí cuando sean recibidos</p>
-            <div className="webhook-info">
-              <code>POST https://comerciowebhook.onrender.com/webhook</code>
-            </div>
-          </div>
-        ) : (
-          <div className="payments-list">
-            {payments.map((payment, index) => (
-              <div 
-                key={payment.id} 
-                className={`payment-card ${payment.status ? `status-${payment.status}` : ''} ${index === 0 && notification?.id === payment.id ? 'new' : ''}`}
-              >
-                <div className="payment-status-indicator"></div>
-                <div className="payment-main">
-                  <div className="payment-header">
-                    <span className="payment-payer">{payment.payer}</span>
-                    <div className="payment-header-right">
-                      {payment.status && (
-                        <span className={`payment-status-badge status-${payment.status}`}>{statusLabel(payment.status)}</span>
-                      )}
-                      <span className="payment-amount">
-                        {formatCurrency(payment.amount, payment.currency)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="payment-details">
-                    <span className="payment-description">{payment.description}</span>
-                    {payment.reference && (
-                      <span className="payment-reference">Ref: {payment.reference}</span>
-                    )}
-                    {payment.type && (
-                      <span className="payment-type">{payment.type === 'debit' ? 'Débito' : payment.type === 'credit' ? 'Crédito' : payment.type}</span>
-                    )}
-                    {payment.paymentMethod && (
-                      <span className="payment-method">{payment.paymentMethod}</span>
-                    )}
-                  </div>
-                  {payment.tokens && Object.keys(payment.tokens).length > 0 && (
-                    <div className="payment-tokens">
-                      {payment.tokens.token != null && (
-                        <div className="payment-token-row"><span className="token-label">token</span><code>{payment.tokens.token}</code></div>
-                      )}
-                      {payment.tokens.tokenId != null && (
-                        <div className="payment-token-row"><span className="token-label">tokenId</span><code>{payment.tokens.tokenId}</code></div>
-                      )}
-                      {payment.tokens.panToken != null && (
-                        <div className="payment-token-row"><span className="token-label">panToken</span><code>{payment.tokens.panToken}</code></div>
-                      )}
-                      {payment.tokens.commerceToken != null && (
-                        <div className="payment-token-row"><span className="token-label">commerceToken</span><code>{payment.tokens.commerceToken}</code></div>
-                      )}
-                    </div>
-                  )}
-                  <div className="payment-footer">
-                    <span className="payment-id">
-                      {payment.transactionId ? `TXN: ${payment.transactionId}` : `ID: ${payment.id.substring(0, 8)}...`}
-                    </span>
-                    <span className="payment-time">
-                      {formatDate(payment.timestamp)} - {formatTime(payment.timestamp)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <Routes>
+          <Route path="/" element={<HomeView paymentsCount={payments.length} />} />
+          <Route 
+            path="/pagos" 
+            element={
+              <PagosView 
+                payments={payments} 
+                filterStatus={filterStatus} 
+                setFilterStatus={setFilterStatus}
+              />
+            } 
+          />
+          <Route path="/subscripciones" element={<SubscripcionesView />} />
+        </Routes>
       </main>
 
       {/* Footer */}
@@ -263,6 +158,14 @@ function App() {
         <p>Webhook: <code>{SOCKET_URL}/webhook</code></p>
       </footer>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }
 

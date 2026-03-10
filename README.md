@@ -164,3 +164,45 @@ Para tener siempre la misma URL (requiere cuenta de pago):
 ```bash
 ngrok http 3001 --domain=tu-dominio.ngrok-free.app
 ```
+
+## Dashboard y estadísticas 📊
+
+La aplicación React expone un dashboard en tiempo real que muestra:
+
+- Contador de notificaciones recibidas (últimos 100 en la lista)
+- Total recaudado
+- Desglose por **estado** (approved, pending, rejected, etc.)
+
+Los datos se calculan en el servidor y se envían por WebSocket para mantener la UI
+actualizada. También hay endpoints REST para consultar métricas:
+
+```text
+GET /stats            # estadísticas del día actual
+GET /stats?date=YYYY-MM-DD  # estadísticas de una fecha específica
+GET /stats/all        # todas las fechas (solo para debugging)
+```
+
+Estas métricas permiten verificar que, incluso si se envían miles de
+notificaciones, el conteo general y el breakdown por estado siga siendo correcto.
+
+## Simulación de carga 🔁
+
+Para probar el comportamiento con volúmenes grandes puedes utilizar el script
+incluido `send_test_notifications.js`.
+
+```bash
+node send_test_notifications.js [webhook_url] [cantidad]
+```
+
+- `webhook_url` por defecto `http://localhost:3001/webhook`
+- `cantidad` por defecto `50000`
+
+Ejemplo:
+
+```bash
+node send_test_notifications.js http://localhost:3001/webhook 50000
+```
+
+Mientras corre el script observarás cómo el dashboard actualizado va incrementando
+los contadores y muestra el estado de cada pago.
+

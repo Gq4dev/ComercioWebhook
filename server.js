@@ -38,7 +38,16 @@ if (isProduction && hasBuild) {
 }
 
 // Almacén temporal de pagos (en producción usar DB)
+// Para mantener la experiencia de la UI mantenemos sólo los últimos 100 pagos,
+// pero guardamos estadísticas de todos los mensajes recibidos por día.
 const payments = [];
+
+// Almacén temporal de subscripciones (en producción usar DB)
+const subscriptions = [];
+
+// Estadísticas agregadas por fecha. Ejemplo:
+// statsByDate['2026-03-01'] = { total: 123, status: { approved: 45, pending: 78 } }
+const statsByDate = {};
 
 // Estado del webhook (habilitado/deshabilitado para probar DLQ)
 let webhookEnabled = true;
@@ -51,6 +60,19 @@ app.get('/health', (req, res) => {
 // Endpoint para obtener estado del webhook
 app.get('/webhook/status', (req, res) => {
   res.json({ enabled: webhookEnabled });
+});
+
+// Endpoint para consultar estadísticas de notificaciones por día
+// Se puede pasar ?date=YYYY-MM-DD (por defecto el día actual)
+app.get('/stats', (req, res) => {
+  const day = req.query.date || new Date().toISOString().split('T')[0];
+  const stats = statsByDate[day] || { total: 0, status: {} };
+  res.json({ date: day, stats });
+});
+
+// opcional: devolver todas las estadísticas acumuladas (para debugging)
+app.get('/stats/all', (req, res) => {
+  res.json({ statsByDate });
 });
 
 // Endpoint para activar/desactivar webhook (para probar DLQ)
@@ -170,18 +192,27 @@ app.post('/webhook', (req, res) => {
     const paymentData = req.body;
     const payment = normalizePaymentPayload(paymentData);
 
-    // Guardar en memoria
+    // Guardar en memoria para la lista de pagos (últimos 100)
     payments.unshift(payment);
-    
-    // Limitar a últimos 100 pagos
     if (payments.length > 100) {
       payments.pop();
     }
+
+    // Actualizar estadísticas agregadas
+    const day = new Date(payment.timestamp).toISOString().split('T')[0];
+    if (!statsByDate[day]) {
+      statsByDate[day] = { total: 0, status: {} };
+    }
+    statsByDate[day].total++;
+    const st = payment.status || 'unknown';
+    statsByDate[day].status[st] = (statsByDate[day].status[st] || 0) + 1;
 
     console.log('💰 Pago recibido:', payment);
 
     // Emitir a todos los clientes conectados
     io.emit('new-payment', payment);
+    // también emitir actualización de estadísticas para el día actual
+    io.emit('stats-update', { date: day, stats: statsByDate[day] });
 
     res.status(200).json({ 
       success: true, 
@@ -203,12 +234,20 @@ app.get('/payments', (req, res) => {
   res.json(payments);
 });
 
+// Endpoint para obtener subscripciones
+app.get('/subscriptions', (req, res) => {
+  res.json(subscriptions);
+});
+
 // WebSocket connection
 io.on('connection', (socket) => {
   console.log('🔌 Cliente conectado:', socket.id);
   
   // Enviar pagos existentes al conectarse
   socket.emit('payments-history', payments);
+  // también enviar estadísticas para el día actual
+  const today = new Date().toISOString().split('T')[0];
+  socket.emit('stats-update', { date: today, stats: statsByDate[today] || { total: 0, status: {} } });
 
   socket.on('disconnect', () => {
     console.log('❌ Cliente desconectado:', socket.id);
