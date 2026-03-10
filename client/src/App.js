@@ -147,7 +147,7 @@ function AppContent() {
       {/* Rutas */}
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<HomeView paymentsCount={payments.length} />} />
+          <Route path="/" element={<HomeView paymentsCount={payments.length} subscriptionsCount={subscriptions.length} />} />
           <Route 
             path="/pagos" 
             element={
