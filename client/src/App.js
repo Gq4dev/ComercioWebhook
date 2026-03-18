@@ -146,6 +146,7 @@ function AppContent() {
 
       {/* Rutas */}
       <main className="main-content">
+        <div className="routes-wrapper">
         <Routes>
           <Route path="/" element={<HomeView paymentsCount={payments.length} subscriptionsCount={subscriptions.length} />} />
           <Route 
@@ -160,6 +161,7 @@ function AppContent() {
           />
           <Route path="/subscripciones" element={<SubscripcionesView subscriptions={subscriptions} />} />
         </Routes>
+        </div>
       </main>
 
       {/* Footer */}
