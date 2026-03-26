@@ -6,6 +6,7 @@ import './App.css';
 import HomeView from './views/HomeView';
 import PagosView from './views/PagosView';
 import SubscripcionesView from './views/SubscripcionesView';
+import { formatMoney } from './moneyUtils';
 
 // En producción usa la misma URL, en desarrollo usa localhost:3001
 const SOCKET_URL = process.env.NODE_ENV === 'production' 
@@ -90,13 +91,6 @@ function AppContent() {
     setToggling(false);
   };
 
-  const formatCurrency = (amount, currency = 'ARS') => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: currency
-    }).format(amount);
-  };
-
   return (
     <div className="app">
       {/* Notificación flotante */}
@@ -106,7 +100,7 @@ function AppContent() {
           <div className="notification-content">
             <div className="notification-title">¡Nuevo Pago Recibido!</div>
             <div className="notification-amount">
-              {formatCurrency(notification.amount, notification.currency)}
+              {formatMoney(notification)}
             </div>
             <div className="notification-payer">{notification.payer}</div>
           </div>

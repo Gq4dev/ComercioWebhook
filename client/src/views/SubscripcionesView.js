@@ -1,16 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatMoney } from '../moneyUtils';
 import './SubscripcionesView.css';
 
 function SubscripcionesView({ subscriptions = [] }) {
   const navigate = useNavigate();
-
-  const formatCurrency = (amount, currency = 'ARS') => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: currency
-    }).format(amount);
-  };
 
   const formatDate = (timestamp) => {
     return new Date(timestamp).toLocaleDateString('es-AR', {
@@ -62,7 +56,7 @@ function SubscripcionesView({ subscriptions = [] }) {
                   <td>{sub.subscriber || sub.payer || '—'}</td>
                   <td>{sub.plan || sub.description || '—'}</td>
                   <td className="cell-amount">
-                    {formatCurrency(sub.amount || 0, sub.currency)}
+                    {formatMoney(sub)}
                   </td>
                   <td>
                     <span className={`status-badge status-${sub.status || 'unknown'}`}>

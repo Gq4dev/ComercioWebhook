@@ -90,6 +90,53 @@ app.post('/webhook/toggle', (req, res) => {
   });
 });
 
+/**
+ * Monto numérico desde documentos Mongo / APIs (Decimal128 {$numberDecimal}, strings, alias).
+ */
+function coerceAmountFromDocument(d) {
+  if (!d || typeof d !== 'object') return 0;
+
+  function unwrap(v) {
+    if (v == null) return null;
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      const s = v.trim().replace(/\s/g, '').replace(',', '.');
+      if (s === '') return null;
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    }
+    if (typeof v === 'object') {
+      if (v.$numberDecimal != null) return unwrap(String(v.$numberDecimal));
+      if (v.$numberDouble != null) return unwrap(v.$numberDouble);
+      if (v.$numberLong != null) return unwrap(String(v.$numberLong));
+      if (v.$numberInt != null) return unwrap(v.$numberInt);
+    }
+    return null;
+  }
+
+  const keys = [
+    'amount',
+    'final_amount',
+    'total_amount',
+    'transaction_amount',
+    'paid_amount',
+    'total_paid_amount',
+    'monto'
+  ];
+  for (const k of keys) {
+    const n = unwrap(d[k]);
+    if (n != null) return n;
+  }
+  const td = d.transaction_details;
+  if (td && typeof td === 'object') {
+    for (const k of keys) {
+      const n = unwrap(td[k]);
+      if (n != null) return n;
+    }
+  }
+  return 0;
+}
+
 /** Normaliza timestamp ISO (ej. con microsegundos) a algo que Date parsee bien */
 function parseTimestamp(ts) {
   if (ts == null) return new Date().toISOString();
@@ -148,7 +195,7 @@ function normalizeEnvelopePayload(envelope) {
   return {
     id,
     transactionId: d.payment_id || d.subscription_id || null,
-    amount: d.amount != null ? Number(d.amount) : 0,
+    amount: coerceAmountFromDocument(d),
     currency: d.currency_id || d.currency || 'ARS',
     status: envelope.status || d.status || 'received',
     type: entityType,
@@ -202,7 +249,7 @@ function normalizePaymentPayload(data) {
     return {
       id: data.id || uuidv4(),
       transactionId: data.external_transaction_id || firstPaymentMethod.gateway?.transaction_id || null,
-      amount: data.final_amount ?? data.amount ?? 0,
+      amount: coerceAmountFromDocument(data),
       currency: data.currency_id || data.currency || 'ARS',
       status: data.status || 'received',
       type: data.type || null,
@@ -240,7 +287,7 @@ function normalizePaymentPayload(data) {
     return {
       id: data.payment_id || data.id || uuidv4(),
       transactionId: data.transactionId || null,
-      amount: data.amount ?? data.monto ?? 0,
+      amount: coerceAmountFromDocument(data),
       currency: data.currency || data.moneda || 'ARS',
       status: data.status || data.estado || 'received',
       type: data.type || null,

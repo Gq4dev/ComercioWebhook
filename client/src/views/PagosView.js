@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatMoney } from '../moneyUtils';
 import './PagosView.css';
 
 function PagosView({ payments = [], filterStatus, setFilterStatus }) {
@@ -11,13 +12,6 @@ function PagosView({ payments = [], filterStatus, setFilterStatus }) {
     acc[s] = (acc[s] || 0) + 1;
     return acc;
   }, {});
-
-  const formatCurrency = (amount, currency = 'ARS') => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: currency
-    }).format(amount);
-  };
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString('es-AR', {
@@ -106,7 +100,7 @@ function PagosView({ payments = [], filterStatus, setFilterStatus }) {
                   <td>{payment.payer || '—'}</td>
                   <td>{payment.description || '—'}</td>
                   <td className="cell-amount">
-                    {formatCurrency(payment.amount, payment.currency)}
+                    {formatMoney(payment)}
                   </td>
                   <td>
                     <span className={`status-badge status-${payment.status || 'unknown'}`}>
