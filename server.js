@@ -90,8 +90,88 @@ app.post('/webhook/toggle', (req, res) => {
   });
 });
 
+/** Normaliza timestamp ISO (ej. con microsegundos) a algo que Date parsee bien */
+function parseTimestamp(ts) {
+  if (ts == null) return new Date().toISOString();
+  if (typeof ts !== 'string') return new Date(ts).toISOString();
+  const trimmed = ts.replace(/(\.\d{3})\d+(?=\D|$)/, '$1');
+  const d = new Date(trimmed.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(trimmed) ? trimmed : trimmed + 'Z');
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+
+/**
+ * Envelope Mongo: { type, status, processed_at, data: { payment_id, payer, amount, ... } }
+ */
+function isEnvelopePayload(body) {
+  if (!body || typeof body !== 'object') return false;
+  const t = String(body.type || '').toLowerCase();
+  if (t !== 'payment' && t !== 'subscription') return false;
+  const inner = body.data;
+  if (inner == null || typeof inner !== 'object') return false;
+  if (t === 'subscription') return true;
+  return inner.payment_id != null || inner._id != null || inner.subscription_id != null;
+}
+
+function normalizeEnvelopePayload(envelope) {
+  const d = envelope.data;
+  const payer = d.payer;
+  const payerName =
+    typeof payer === 'object' && payer !== null
+      ? (payer.name || payer.email || 'Desconocido')
+      : (payer || 'Desconocido');
+
+  const firstPm =
+    Array.isArray(d.payment_methods) && d.payment_methods.length > 0
+      ? d.payment_methods[0]
+      : {};
+  const methodParts = [];
+  if (firstPm.media_payment_detail) methodParts.push(firstPm.media_payment_detail);
+  if (firstPm.last_four_digits) methodParts.push(`****${firstPm.last_four_digits}`);
+  if (firstPm.type && !firstPm.media_payment_detail) methodParts.push(String(firstPm.type));
+  const methodLabel = methodParts.length > 0 ? methodParts.join(' ') : null;
+
+  const timestamp = parseTimestamp(
+    envelope.processed_at || d.last_update_date || d.paid_date || d.process_date
+  );
+
+  const id = d._id != null ? String(d._id) : (d.payment_id || d.subscription_id || uuidv4());
+  const entityType = String(envelope.type || 'payment').toLowerCase();
+
+  let description = d.description || d.concept_description;
+  if (!description) {
+    description = entityType === 'subscription' ? 'Subscripción' : 'Pago recibido';
+  }
+
+  const refParts = [d.collector_id, d.entity_id].filter((x) => x != null && x !== '');
+  const reference = refParts.length > 0 ? refParts.map(String).join(' / ') : null;
+
+  return {
+    id,
+    transactionId: d.payment_id || d.subscription_id || null,
+    amount: d.amount != null ? Number(d.amount) : 0,
+    currency: d.currency_id || d.currency || 'ARS',
+    status: envelope.status || d.status || 'received',
+    type: entityType,
+    description,
+    payer: payerName,
+    reference,
+    timestamp,
+    responseCode: firstPm.authorization_code || null,
+    responseMessage: d.status_detail || envelope.status_detail || null,
+    paymentMethod: methodLabel,
+    notificationUrl: d.notification_url || null,
+    collectorId: d.collector_id != null ? String(d.collector_id) : null,
+    entityId: d.entity_id != null ? String(d.entity_id) : null,
+    rawData: envelope
+  };
+}
+
 // Normaliza el payload entrante (múltiples formatos soportados) a nuestro modelo de pago
 function normalizePaymentPayload(data) {
+  if (isEnvelopePayload(data)) {
+    return normalizeEnvelopePayload(data);
+  }
+
   // Detectar formato: nuevo formato de webhook (tiene collector_detail y payment_methods)
   const isWebhookFormat = data.collector_detail && Array.isArray(data.payment_methods);
   
