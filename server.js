@@ -134,15 +134,36 @@ function coerceAmountFromDocument(d) {
       if (n != null) return n;
     }
   }
+  // Formato Paytic: details[].amount, payment_methods[].final_amount
+  const det0 = Array.isArray(d.details) && d.details[0];
+  if (det0 && typeof det0 === 'object') {
+    const n = unwrap(det0.amount);
+    if (n != null) return n;
+  }
+  const pm0 = Array.isArray(d.payment_methods) && d.payment_methods[0];
+  if (pm0 && typeof pm0 === 'object') {
+    for (const k of ['final_amount', 'amount']) {
+      const n = unwrap(pm0[k]);
+      if (n != null) return n;
+    }
+  }
   return 0;
 }
 
-/** Normaliza timestamp ISO (ej. con microsegundos) a algo que Date parsee bien */
+/** Normaliza timestamp ISO (+0000, microsegundos) a ISO UTC */
 function parseTimestamp(ts) {
   if (ts == null) return new Date().toISOString();
-  if (typeof ts !== 'string') return new Date(ts).toISOString();
-  const trimmed = ts.replace(/(\.\d{3})\d+(?=\D|$)/, '$1');
-  const d = new Date(trimmed.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(trimmed) ? trimmed : trimmed + 'Z');
+  if (typeof ts !== 'string') {
+    const d = new Date(ts);
+    return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+  }
+  let s = ts.replace(/(\.\d{3})\d+(?=\D|$)/, '$1');
+  // "2025-12-17T18:19:16+0000" -> "+00:00"
+  const tzOffset = s.match(/([+-])(\d{2})(\d{2})$/);
+  if (tzOffset && !/[+-]\d{2}:\d{2}$/.test(s)) {
+    s = s.replace(/([+-])(\d{2})(\d{2})$/, (_, sign, hh, mm) => `${sign}${hh}:${mm}`);
+  }
+  const d = new Date(s.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(s) ? s : `${s}Z`);
   return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
 }
 
@@ -223,44 +244,92 @@ function normalizePaymentPayload(data) {
   const isWebhookFormat = data.collector_detail && Array.isArray(data.payment_methods);
   
   if (isWebhookFormat) {
-    // Formato nuevo: webhook con collector_detail y payment_methods
+    // Formato Paytic / webhooks: collector_detail, details[], payment_methods[], payer
     const collector = data.collector_detail || {};
-    const payerName = collector.name || 'Desconocido';
-    
-    // Obtener primer detalle y método de pago
-    const firstDetail = Array.isArray(data.details) && data.details.length > 0 ? data.details[0] : {};
-    const firstPaymentMethod = Array.isArray(data.payment_methods) && data.payment_methods.length > 0 
-      ? data.payment_methods[0] 
+    const payerObj = data.payer;
+    const payerName =
+      typeof payerObj === 'object' && payerObj !== null
+        ? (payerObj.name || payerObj.email || collector.name || collector.public_email || 'Desconocido')
+        : (collector.name || collector.public_email || 'Desconocido');
+
+    const firstDetail =
+      Array.isArray(data.details) && data.details.length > 0 ? data.details[0] : {};
+    const firstPaymentMethod =
+      Array.isArray(data.payment_methods) && data.payment_methods.length > 0
+        ? data.payment_methods[0]
+        : {};
+    const gw = firstPaymentMethod.gateway && typeof firstPaymentMethod.gateway === 'object'
+      ? firstPaymentMethod.gateway
       : {};
-    
-    // Construir label del método de pago
+
     const methodParts = [];
     if (firstPaymentMethod.media_payment_detail) {
-      methodParts.push(firstPaymentMethod.media_payment_detail);
+      methodParts.push(String(firstPaymentMethod.media_payment_detail));
+    } else if (firstPaymentMethod.type) {
+      methodParts.push(String(firstPaymentMethod.type));
     }
     if (firstPaymentMethod.last_four_digits) {
       methodParts.push(`****${firstPaymentMethod.last_four_digits}`);
     }
     const methodLabel = methodParts.length > 0 ? methodParts.join(' ') : null;
-    
-    // Timestamp: usar paid_date si existe, sino process_date, sino last_update_date
-    const timestamp = data.paid_date || data.process_date || data.last_update_date || new Date().toISOString();
-    
+
+    const timestamp = parseTimestamp(
+      data.last_update_date ||
+        data.process_date ||
+        data.rejected_date ||
+        data.paid_date ||
+        data.request_date ||
+        data.due_date
+    );
+
+    const status = data.status || gw.status || 'received';
+    const responseCode =
+      gw.status_code != null
+        ? String(gw.status_code)
+        : firstPaymentMethod.authorization_code != null
+          ? String(firstPaymentMethod.authorization_code)
+          : null;
+    const responseMessage = gw.status_detail || data.status_detail || null;
+
+    const tokens = {};
+    if (firstPaymentMethod.pan_token) tokens.panToken = firstPaymentMethod.pan_token;
+    const hasTokens = Object.keys(tokens).length > 0;
+
+    const reference =
+      firstDetail.external_reference ||
+      data.by_subscription ||
+      data.external_transaction_id ||
+      null;
+
     return {
       id: data.id || uuidv4(),
-      transactionId: data.external_transaction_id || firstPaymentMethod.gateway?.transaction_id || null,
+      transactionId: data.external_transaction_id || gw.transaction_id || null,
       amount: coerceAmountFromDocument(data),
-      currency: data.currency_id || data.currency || 'ARS',
-      status: data.status || 'received',
+      currency:
+        data.currency_id ||
+        firstPaymentMethod.currency_id ||
+        data.currency ||
+        'ARS',
+      status,
       type: data.type || null,
-      description: firstDetail.concept_description || firstDetail.concept_id || 'Pago recibido',
+      description:
+        firstDetail.concept_description ||
+        firstDetail.concept_id ||
+        'Pago recibido',
       payer: payerName,
-      reference: firstDetail.external_reference || data.external_transaction_id || null,
-      timestamp: timestamp,
-      responseCode: firstPaymentMethod.authorization_code || null,
-      responseMessage: data.status_detail || null,
+      payerEmail: typeof payerObj === 'object' && payerObj ? payerObj.email || null : null,
+      reference,
+      bySubscription: data.by_subscription || null,
+      collectorId: data.collector_id != null ? String(data.collector_id) : null,
+      channel: data.channel || null,
+      gatewayName: gw.name || null,
+      timestamp,
+      responseCode,
+      responseMessage,
       paymentMethod: methodLabel,
-      rawData: data
+      notificationUrl: data.notification_url || null,
+      rawData: data,
+      ...(hasTokens && { tokens })
     };
   } else {
     // Formato anterior: SQS con payment_id, payer object, etc.

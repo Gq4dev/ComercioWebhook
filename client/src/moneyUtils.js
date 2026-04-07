@@ -37,6 +37,18 @@ function amountFromDoc(doc) {
       if (n != null) return n;
     }
   }
+  const det0 = Array.isArray(doc.details) && doc.details[0];
+  if (det0 && typeof det0 === 'object') {
+    const n = unwrapNumber(det0.amount);
+    if (n != null) return n;
+  }
+  const pm0 = Array.isArray(doc.payment_methods) && doc.payment_methods[0];
+  if (pm0 && typeof pm0 === 'object') {
+    for (const k of ['final_amount', 'amount']) {
+      const n = unwrapNumber(pm0[k]);
+      if (n != null) return n;
+    }
+  }
   return null;
 }
 

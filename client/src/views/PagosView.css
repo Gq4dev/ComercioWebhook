@@ -126,6 +126,12 @@
   border-bottom: none;
 }
 
+.cell-muted {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.55);
+  max-width: 14rem;
+}
+
 .cell-date {
   display: block;
   font-weight: 500;

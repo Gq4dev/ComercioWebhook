@@ -85,6 +85,7 @@ function PagosView({ payments = [], filterStatus, setFilterStatus }) {
                 <th>Fecha / Hora</th>
                 <th>Pagador</th>
                 <th>Descripción</th>
+                <th>Medio</th>
                 <th>Monto</th>
                 <th>Estado</th>
                 <th>Ref / ID</th>
@@ -99,6 +100,7 @@ function PagosView({ payments = [], filterStatus, setFilterStatus }) {
                   </td>
                   <td>{payment.payer || '—'}</td>
                   <td>{payment.description || '—'}</td>
+                  <td className="cell-muted">{payment.paymentMethod || payment.gatewayName || payment.type || '—'}</td>
                   <td className="cell-amount">
                     {formatMoney(payment)}
                   </td>
