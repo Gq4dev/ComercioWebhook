@@ -110,6 +110,7 @@ function PagosView({ payments = [], filterStatus, setFilterStatus }) {
                     </span>
                   </td>
                   <td className="cell-ref">
+                    {payment.encrypted && <span className="encrypted-badge" title="Payload desencriptado">🔐</span>}
                     {payment.transactionId || payment.reference || payment.id?.substring(0, 8) || '—'}
                   </td>
                 </tr>

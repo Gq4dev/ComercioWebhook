@@ -1,9 +1,11 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
+const { isEncryptedPayload, decryptPayload } = require('./decrypt');
 
 const app = express();
 const server = http.createServer(app);
@@ -385,8 +387,25 @@ app.post('/webhook', (req, res) => {
   }
 
   try {
-    const paymentData = req.body;
+    let paymentData = req.body;
+
+    let wasEncrypted = false;
+    if (isEncryptedPayload(paymentData)) {
+      try {
+        paymentData = decryptPayload(paymentData);
+        wasEncrypted = true;
+        console.log('🔐 Payload desencriptado correctamente');
+      } catch (decErr) {
+        console.error('🔐 Error desencriptando payload:', decErr.message);
+        return res.status(400).json({
+          success: false,
+          error: 'Error desencriptando payload: ' + decErr.message
+        });
+      }
+    }
+
     const item = normalizePaymentPayload(paymentData);
+    if (wasEncrypted) item.encrypted = true;
     const isSubscription = (item.type || '').toLowerCase() === 'subscription';
 
     if (isSubscription) {

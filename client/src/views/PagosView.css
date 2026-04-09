@@ -156,6 +156,11 @@
   color: #f87171;
 }
 
+.encrypted-badge {
+  margin-right: 0.35rem;
+  font-size: 0.75rem;
+}
+
 .cell-ref {
   font-family: monospace;
   font-size: 0.8rem;
