@@ -178,22 +178,22 @@ function isEnvelopePayload(body) {
   if (t !== 'payment' && t !== 'subscription') return false;
   const inner = body.data;
   if (inner == null || typeof inner !== 'object') return false;
-  if (t === 'subscription') return true;
-  return inner.payment_id != null || inner._id != null || inner.subscription_id != null;
+  return true;
 }
 
 function normalizeEnvelopePayload(envelope) {
   const d = envelope.data;
-  const payer = d.payer;
+  const payer = d.payer || envelope.payer;
+  const collectorDetail = d.collector_detail || envelope.collector_detail;
   const payerName =
     typeof payer === 'object' && payer !== null
       ? (payer.name || payer.email || 'Desconocido')
-      : (payer || 'Desconocido');
+      : (payer || (typeof collectorDetail === 'object' && collectorDetail ? (collectorDetail.name || collectorDetail.public_email) : null) || 'Desconocido');
 
-  const firstPm =
-    Array.isArray(d.payment_methods) && d.payment_methods.length > 0
-      ? d.payment_methods[0]
-      : {};
+  const pmArray = Array.isArray(d.payment_methods) && d.payment_methods.length > 0
+    ? d.payment_methods
+    : (Array.isArray(envelope.payment_methods) && envelope.payment_methods.length > 0 ? envelope.payment_methods : []);
+  const firstPm = pmArray.length > 0 ? pmArray[0] : {};
   const methodParts = [];
   if (firstPm.media_payment_detail) methodParts.push(firstPm.media_payment_detail);
   if (firstPm.last_four_digits) methodParts.push(`****${firstPm.last_four_digits}`);
@@ -204,10 +204,13 @@ function normalizeEnvelopePayload(envelope) {
     envelope.processed_at || d.last_update_date || d.paid_date || d.process_date
   );
 
-  const id = d._id != null ? String(d._id) : (d.payment_id || d.subscription_id || uuidv4());
+  const id = d._id != null ? String(d._id) : (d.payment_id || d.id || d.subscription_id || uuidv4());
   const entityType = String(envelope.type || 'payment').toLowerCase();
 
-  let description = d.description || d.concept_description;
+  const det0 = Array.isArray(d.details) && d.details[0]
+    ? d.details[0]
+    : (Array.isArray(envelope.details) && envelope.details[0] ? envelope.details[0] : null);
+  let description = d.description || d.concept_description || (det0 && (det0.concept_description || det0.description)) || envelope.description;
   if (!description) {
     description = entityType === 'subscription' ? 'Subscripción' : 'Pago recibido';
   }
@@ -215,11 +218,13 @@ function normalizeEnvelopePayload(envelope) {
   const refParts = [d.collector_id, d.entity_id].filter((x) => x != null && x !== '');
   const reference = refParts.length > 0 ? refParts.map(String).join(' / ') : null;
 
+  const amount = coerceAmountFromDocument(d) || coerceAmountFromDocument(envelope);
+
   return {
     id,
-    transactionId: d.payment_id || d.subscription_id || null,
-    amount: coerceAmountFromDocument(d),
-    currency: d.currency_id || d.currency || 'ARS',
+    transactionId: d.payment_id || d.external_transaction_id || d.subscription_id || null,
+    amount,
+    currency: d.currency_id || d.currency || envelope.currency_id || envelope.currency || 'ARS',
     status: envelope.status || d.status || 'received',
     type: entityType,
     description,
@@ -230,7 +235,7 @@ function normalizeEnvelopePayload(envelope) {
     responseMessage: d.status_detail || envelope.status_detail || null,
     paymentMethod: methodLabel,
     notificationUrl: d.notification_url || null,
-    collectorId: d.collector_id != null ? String(d.collector_id) : null,
+    collectorId: d.collector_id != null ? String(d.collector_id) : (envelope.collector_id != null ? String(envelope.collector_id) : null),
     entityId: d.entity_id != null ? String(d.entity_id) : null,
     rawData: envelope
   };
@@ -335,7 +340,9 @@ function normalizePaymentPayload(data) {
     };
   } else {
     // Formato anterior: SQS con payment_id, payer object, etc.
-    const payer = data.payer;
+    // Fallback: check data.data for nested fields
+    const inner = (data.data && typeof data.data === 'object') ? data.data : null;
+    const payer = data.payer || (inner && inner.payer);
     const payerName = typeof payer === 'object' && payer !== null
       ? (payer.name || payer.email || 'Desconocido')
       : (payer || data.pagador || 'Desconocido');
@@ -345,7 +352,6 @@ function normalizePaymentPayload(data) {
       ? [paymentMethod.brand || paymentMethod.type, paymentMethod.lastFourDigits ? `****${paymentMethod.lastFourDigits}` : ''].filter(Boolean).join(' ')
       : (data.paymentMethod || null);
 
-    // Tokens opcionales del paymentMethod (solo si vienen en el mensaje)
     const tokens = {};
     if (typeof paymentMethod === 'object' && paymentMethod !== null) {
       if (paymentMethod.token) tokens.token = paymentMethod.token;
@@ -355,14 +361,16 @@ function normalizePaymentPayload(data) {
     }
     const hasTokens = Object.keys(tokens).length > 0;
 
+    const amount = coerceAmountFromDocument(data) || (inner ? coerceAmountFromDocument(inner) : 0);
+
     return {
       id: data.payment_id || data.id || uuidv4(),
-      transactionId: data.transactionId || null,
-      amount: coerceAmountFromDocument(data),
-      currency: data.currency || data.moneda || 'ARS',
+      transactionId: data.transactionId || data.external_transaction_id || null,
+      amount,
+      currency: data.currency || data.currency_id || data.moneda || 'ARS',
       status: data.status || data.estado || 'received',
       type: data.type || null,
-      description: data.description || data.descripcion || 'Pago recibido',
+      description: data.description || data.descripcion || (inner && (inner.description || inner.concept_description)) || 'Pago recibido',
       payer: payerName,
       reference: data.externalReference || data.reference || data.referencia || null,
       timestamp: data.processed_at || data.timestamp || new Date().toISOString(),
@@ -404,8 +412,10 @@ app.post('/webhook', (req, res) => {
       }
     }
 
+    console.log('📦 Payload recibido — keys:', Object.keys(paymentData), '| type:', paymentData.type, '| data keys:', paymentData.data ? Object.keys(paymentData.data) : 'N/A');
     const item = normalizePaymentPayload(paymentData);
     if (wasEncrypted) item.encrypted = true;
+    console.log('📊 Normalizado — amount:', item.amount, '| payer:', item.payer, '| status:', item.status);
     const isSubscription = (item.type || '').toLowerCase() === 'subscription';
 
     if (isSubscription) {

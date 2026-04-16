@@ -108,6 +108,11 @@
   color: #fbbf24;
 }
 
+.subscripciones-view .encrypted-badge {
+  margin-right: 0.35rem;
+  font-size: 0.75rem;
+}
+
 .subscripciones-view .empty-table-state {
   text-align: center;
   padding: 4rem 2rem;

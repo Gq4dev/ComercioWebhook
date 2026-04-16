@@ -63,7 +63,10 @@ function SubscripcionesView({ subscriptions = [] }) {
                       {statusLabel(sub.status)}
                     </span>
                   </td>
-                  <td className="cell-ref">{sub.id?.substring(0, 8) || '—'}</td>
+                  <td className="cell-ref">
+                    {sub.encrypted && <span className="encrypted-badge" title="Payload desencriptado">🔐</span>}
+                    {sub.id?.substring(0, 8) || '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>
